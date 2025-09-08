@@ -13,6 +13,9 @@ The games must only need to have a game update, a render, and inputs to function
 Does not start automatically, can be paused.
 Each game must follow a retro art style - yet to be defined.
 
+Try to make game classes that can be reused across all games.
+etc. The grid system, collision, rendering.
+
 
 ## The games
 
