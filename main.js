@@ -29,7 +29,7 @@ document.body.appendChild(css_renderer.domElement);
 
 //GCUBE
 const geometry = new THREE.BoxGeometry(2, 2, 2);
-const stand_material = new THREE.MeshStandardMaterial();
+const stand_material = new THREE.MeshStandardMaterial({ wireframe: true });
 const cube = new THREE.Mesh(geometry, stand_material);
 scene.add(cube);
 

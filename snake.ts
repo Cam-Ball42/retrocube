@@ -1,8 +1,8 @@
 const canv_width = 400;
 const canv_height = 400;
 
-const num_cols = 30;
-const num_rows: number = 30;
+const num_cols = 20;
+const num_rows: number = 20;
 
 const cell_width = canv_width / num_cols;
 const cell_height = canv_height / num_rows;
@@ -23,6 +23,7 @@ const game_grid = initGameGrid();
 
 var last_time = 0;
 var move_counter = 0;
+var delta = 0;
 
 
 if (!ctx) {
@@ -34,7 +35,7 @@ drawGrid(ctx);
 
 dropFood();
 initSnake();
-drawState(ctx);
+render(ctx);
 
 requestAnimationFrame(gameUpdate);
 
@@ -50,33 +51,43 @@ function initGameGrid() {
         return game_grid;
 }
 
-function drawState(ctx: CanvasRenderingContext2D) {
+function render(ctx: CanvasRenderingContext2D) {
 
         ctx.clearRect(0, 0, canv_width, canv_height);
 
-
-        ctx.fillStyle = 'white';
-
-        ctx.fillRect(0, 0, canv_width, canv_height);
+        ctx.strokeStyle = 'white';
+        ctx.strokeText(`Delta : ${delta} \nScore : ${snake_length}`, 5, 20, canv_width);
 
         for (let x = 0; x < num_cols; x++) {
                 for (let y = 0; y < num_rows; y++) {
                         switch (game_grid[x][y]) {
                                 case Cell_Type.Food:
-                                        ctx.fillStyle = 'green';
-                                        ctx.fillRect(x * cell_width, y * cell_width, cell_width, cell_height);
+                                        ctx.beginPath();
+                                        ctx.strokeStyle = 'white';
+                                        ctx.lineWidth = 2;
+                                        ctx.roundRect(x * cell_width, y * cell_width, cell_width, cell_height, 5);
+                                        ctx.stroke();
                                         break;
                                 case Cell_Type.Snake:
-                                        ctx.fillStyle = 'red';
-                                        ctx.fillRect(x * cell_width, y * cell_width, cell_width, cell_height);
+                                        ctx.beginPath();
+                                        ctx.strokeStyle = 'red';
+                                        ctx.lineWidth = 2;
+                                        ctx.roundRect(x * cell_width, y * cell_width, cell_width, cell_height, 5);
+                                        ctx.stroke();
                                         break;
+
                         }
                 }
         }
 }
 function dropFood() {
-        var randx = Math.floor(Math.random() * num_cols);
-        var randy = Math.floor(Math.random() * num_rows);
+        var randx: number
+        var randy: number;
+        do {
+                randx = Math.floor(Math.random() * num_cols);
+                randy = Math.floor(Math.random() * num_rows);
+        } while (game_grid[randx][randy] !== Cell_Type.Empty);
+
         console.log(`Dropped food at ${randx}, ${randy}`)
         game_grid[randx][randy] = Cell_Type.Food;
 }
@@ -101,7 +112,7 @@ function initSnake() {
 }
 
 function gameUpdate(current_time: number) {
-        const delta = current_time - last_time;
+        delta = current_time - last_time;
         last_time = current_time;
         move_counter += delta;
 
@@ -110,7 +121,7 @@ function gameUpdate(current_time: number) {
                 move_counter = 0;
         }
 
-        drawState(ctx);
+        render(ctx);
         requestAnimationFrame(gameUpdate);
 }
 
@@ -194,7 +205,6 @@ function handle_input(e: KeyboardEvent) {
                         break;
                 case "ArrowDown":
                         if (snake_dir.y === 0) {
-
                                 snake_dir = { x: 0, y: 1 };
                         }
                         break;
