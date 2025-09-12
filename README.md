@@ -9,7 +9,7 @@ use more control.
 ## Limitations
 
 The games must be contained in a 300x300 canvas.
-The games must only need to have a game update, a render, and inputs to function.
+The games must only need to have a game update, a render, and inputs to function as exported functions.
 Does not start automatically, can be paused.
 Each game must follow a retro art style - yet to be defined.
 

@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';
 import { CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+import * as snake from './snake.js';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth /
@@ -45,22 +46,18 @@ const iframe_transforms = [
 function gen_iframes() {
         let frames = [];
         for (let i = 0; i < iframe_transforms.length; i++) {
-                const new_el = document.createElement('iframe');
-                new_el.src = 'https://cam-ball42.github.io/tetriz/';
-                new_el.style.width = '400px';
-                new_el.style.height = '400px';
-                new_el.style.border = 'none';
-                new_el.loading = 'lazy';
-                new_el.align = 'left';
+                if (i === 0) {
+                        var canvas = snake.get_canvas();
 
-                const obj = new CSS3DObject(new_el);
-                obj.position.copy(iframe_transforms[i].pos);
-                obj.rotation.copy(iframe_transforms[i].rot);
-                obj.scale.setScalar(0.005);
+                        const obj = new CSS3DObject(canvas);
+                        obj.position.copy(iframe_transforms[i].pos);
+                        obj.rotation.copy(iframe_transforms[i].rot);
+                        obj.scale.setScalar(0.005);
 
 
-                css_scene.add(obj);
-                frames.push(obj);
+                        css_scene.add(obj);
+
+                }
 
         }
         return frames;
@@ -80,7 +77,21 @@ spotlight.intensity = 0.8;
 
 scene.add(spotlight);
 
+//RESIZE HANDLER
+//
+function onWindowResize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
 
+        // Update camera
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+
+        // Update both renderers
+        renderer.setSize(width, height);
+        css_renderer.setSize(width, height);
+}
+window.addEventListener('resize', onWindowResize);
 
 function animate() {
         // cube.rotation.x += 0.005;
