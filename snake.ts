@@ -18,20 +18,22 @@ const canvas = document.createElement('canvas');
 canvas.width = canv_width;
 canvas.height = canv_height;
 var ctx = canvas.getContext("2d");
+var canvas_transform: any;
 
 const game_grid = initGameGrid();
+
 
 var last_time = 0;
 var move_counter = 0;
 var delta = 0;
-
+var running = false;
+var game_over = false;
 
 if (!ctx) {
         throw new Error("Failed to load context");
 }
 
 ctx.fillRect(0, 0, canv_width, canv_height);
-drawGrid(ctx);
 
 dropFood();
 initSnake();
@@ -56,7 +58,8 @@ function render(ctx: CanvasRenderingContext2D) {
         ctx.clearRect(0, 0, canv_width, canv_height);
 
         ctx.strokeStyle = 'white';
-        ctx.strokeText(`Delta : ${delta} \nScore : ${snake_length}`, 5, 20, canv_width);
+        ctx.strokeText(`Score : ${snake_length}`, 5, 20, canv_width);
+        ctx.strokeText(`Delta : ${delta}`, 5, 45, canv_width);
 
         for (let x = 0; x < num_cols; x++) {
                 for (let y = 0; y < num_rows; y++) {
@@ -83,12 +86,14 @@ function render(ctx: CanvasRenderingContext2D) {
 function dropFood() {
         var randx: number
         var randy: number;
+        var iters = 0;
         do {
                 randx = Math.floor(Math.random() * num_cols);
                 randy = Math.floor(Math.random() * num_rows);
+                iters += 1;
         } while (game_grid[randx][randy] !== Cell_Type.Empty);
 
-        console.log(`Dropped food at ${randx}, ${randy}`)
+        console.log(`Dropped food at ${randx}, ${randy}. Took ${iters} iterations.`);
         game_grid[randx][randy] = Cell_Type.Food;
 }
 
@@ -112,16 +117,19 @@ function initSnake() {
 }
 
 function gameUpdate(current_time: number) {
-        delta = current_time - last_time;
-        last_time = current_time;
-        move_counter += delta;
+        if (running === true) {
+                delta = current_time - last_time;
+                last_time = current_time;
+                move_counter += delta;
 
-        if (move_counter > 75) {
-                updateSnake();
-                move_counter = 0;
+                if (move_counter > 100) {
+                        updateSnake();
+                        move_counter = 0;
+                }
+
+                render(ctx);
         }
 
-        render(ctx);
         requestAnimationFrame(gameUpdate);
 }
 
@@ -210,5 +218,19 @@ function handle_input(e: KeyboardEvent) {
                         break;
 
         }
+}
+
+export function start_game() {
+        running = true;
+}
+export function pause_game() {
+        running = false;
+}
+
+export function set_canvas_transform(transform: any) {
+        canvas_transform = transform;
+}
+export function get_canvas_transform() {
+        return canvas_transform;
 }
 

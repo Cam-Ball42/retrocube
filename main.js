@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';
 import { CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import * as snake from './snake.js';
+import * as asteroids from './asteroids.js'
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth /
@@ -33,37 +34,50 @@ const stand_material = new THREE.MeshStandardMaterial({ wireframe: true });
 const cube = new THREE.Mesh(geometry, stand_material);
 scene.add(cube);
 
+const games = [snake, asteroids];
 
 //Iframe gen
-const iframe_transforms = [
-        { pos: new THREE.Vector3(0, 0, 1), rot: new THREE.Euler(0, 0, 0) }, //front
-        { pos: new THREE.Vector3(0, 0, -1), rot: new THREE.Euler(0, Math.PI, 0) }, //back
-        { pos: new THREE.Vector3(1, 0, 0), rot: new THREE.Euler(0, Math.PI / 2, 0) }, //right
-        { pos: new THREE.Vector3(-1, 0, 0), rot: new THREE.Euler(0, -Math.PI / 2, 0) }, //left
-        { pos: new THREE.Vector3(0, 1, 0), rot: new THREE.Euler(-Math.PI / 2, 0, 0) }, //top
-        { pos: new THREE.Vector3(0, -1, 0), rot: new THREE.Euler(Math.PI / 2, 0, 0) }, //bottom
+const canvas_transforms = [
+        //front
+        { pos: new THREE.Vector3(0, 0, 1), rot: new THREE.Euler(0, 0, 0) },
+        //back
+        { pos: new THREE.Vector3(0, 0, -1), rot: new THREE.Euler(0, Math.PI, 0) },
+        //right
+        { pos: new THREE.Vector3(1, 0, 0), rot: new THREE.Euler(0, Math.PI / 2, 0) },
+        //left
+        { pos: new THREE.Vector3(-1, 0, 0), rot: new THREE.Euler(0, -Math.PI / 2, 0) },
+        //top
+        { pos: new THREE.Vector3(0, 1, 0), rot: new THREE.Euler(-Math.PI / 2, 0, 0) },
+        //bottom
+        { pos: new THREE.Vector3(0, -1, 0), rot: new THREE.Euler(Math.PI / 2, 0, 0) },
 ];
-function gen_iframes() {
+function gen_canvas() {
         let frames = [];
-        for (let i = 0; i < iframe_transforms.length; i++) {
+        for (let i = 0; i < canvas_transforms.length; i++) {
+
+                var canvas;
                 if (i === 0) {
-                        var canvas = snake.get_canvas();
-
-                        const obj = new CSS3DObject(canvas);
-                        obj.position.copy(iframe_transforms[i].pos);
-                        obj.rotation.copy(iframe_transforms[i].rot);
-                        obj.scale.setScalar(0.005);
-
-
-                        css_scene.add(obj);
+                        canvas = snake.get_canvas();
+                        snake.set_canvas_transform(canvas_transforms[i]);
+                }
+                else if (i === 1) {
+                        canvas = asteroids.get_canvas();
+                        asteroids.set_canvas_transform(canvas_transforms[i]);
 
                 }
+                else { continue }
+                var obj = new CSS3DObject(canvas);
+                obj.position.copy(canvas_transforms[i].pos);
+                obj.rotation.copy(canvas_transforms[i].rot);
+                obj.scale.setScalar(0.005);
+                css_scene.add(obj);
+
 
         }
         return frames;
 }
 
-let frames = gen_iframes();
+let frames = gen_canvas();
 
 
 //LIGHTS
@@ -92,6 +106,23 @@ function onWindowResize() {
         css_renderer.setSize(width, height);
 }
 window.addEventListener('resize', onWindowResize);
+window.addEventListener('mousemove', handleFaceProcess)
+
+function handleFaceProcess() {
+
+        const cameraDirection = new THREE.Vector3();
+        camera.getWorldDirection(cameraDirection);
+
+        var visibleFaces = [];
+        for (let i = 0; i < games.length; i++) {
+                const dot = cameraDirection.dot(games[i].get_canvas_transform().pos)
+                if (dot < -0.5) {
+                        games[i].start_game();
+                }
+                else { games[i].pause_game(); }
+        }
+
+}
 
 function animate() {
         // cube.rotation.x += 0.005;
@@ -100,6 +131,7 @@ function animate() {
         // css_object.rotation.x += 0.005;
         // css_object.rotation.y += 0.005;
         //
+
 
         renderer.render(scene, camera);
         css_renderer.render(css_scene, camera);
