@@ -12,6 +12,7 @@ var asteroids = [];
 var game_bounds = [{ x: 0, y: 0 }, { x: canv_width, y: 0 },
     { x: canv_width, y: canv_height }, { x: 0, y: canv_height }];
 var bullets = [];
+var debris = [];
 if (!ctx) {
     throw new Error("Failed to load context");
 }
@@ -30,25 +31,30 @@ var Entity = (function () {
                 this.points = points;
                 this.dir = get_random_bipolar();
                 this.speed = 0.05;
+                this.col_timeout = 0;
                 break;
             case "player":
-                var pos = {
+                this.pos = {
                     x: canv_width / 2,
                     y: canv_height / 2
                 };
-                this.pos = pos;
-                this.points = [addVec({ x: -10, y: 0 }, pos),
-                    addVec({ x: 0, y: 12 }, pos),
-                    addVec({ x: 10, y: 0 }, pos)];
+                this.height = 20;
+                this.width = 10;
+                this.points = [addVec({ x: -10, y: -this.height / 2 }, this.pos),
+                    addVec({ x: 0, y: this.height - this.height / 2 }, this.pos),
+                    addVec({ x: 10, y: -this.height / 2 }, this.pos)];
                 this.dir = { x: 0, y: 1 };
                 this.speed = 0.5;
                 break;
             case "phaser":
-                this.pos = player.pos;
+                this.pos = addVec(player.pos, player.dir);
+                this.points = [addVec(player.pos, multVecI(player.dir, player.height)), addVec(player.pos, multVecI(player.dir, player.height + 3))];
                 this.dir = player.dir;
                 this.speed = 1;
-                this.points = [{ x: player.pos.x, y: player.pos.y },
-                    addVec(player.pos, multVecI(player.dir, 10))];
+                break;
+            case "debris":
+                this.speed = 0.01;
+                break;
         }
     }
     Entity.prototype.move = function (distance) {
@@ -100,11 +106,21 @@ function render(ctx) {
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         ctx.lineTo(points[1].x, points[1].y);
-        ctx.closePath();
+        ctx.stroke();
+    }
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'white';
+    for (var i = 0; i < debris.length; i++) {
+        ctx.beginPath();
+        ctx.moveTo(debris[i].points[0].x, debris[i].points[0].y);
+        ctx.lineTo(debris[i].points[1].x, debris[i].points[1].y);
         ctx.stroke();
     }
     ctx.fillStyle = 'white';
     ctx.fillText("Delta : ".concat(delta), 10, 10, canv_width);
+    ctx.fillText("No. Asteroids: ".concat(asteroids.length), 10, 20, canv_width);
+    ctx.fillText("No. Bullet: ".concat(bullets.length), 10, 30, canv_width);
+    ctx.fillText("No. Debris: ".concat(debris.length), 10, 40, canv_width);
 }
 function gameUpdate(current_time) {
     if (running === true) {
@@ -118,56 +134,109 @@ function gameUpdate(current_time) {
             var zelta = Math.max(delta * aster.speed, 0.05);
             var dist = multVecI(aster.dir, zelta);
             asteroids[i].move(dist);
-            if (checkCollision(aster.points)) {
-                aster.dir = invertVec(aster.dir);
+            if (aster.col_timeout > 0) {
+                var col_result = checkCollisionWithResult(aster.points, game_bounds);
+                if (col_result.did_collide === true) {
+                    aster.dir = reflectVec(aster.dir, col_result.col_normal);
+                    aster.col_timeout = -10;
+                }
             }
+            aster.col_timeout += 1;
         }
         handle_input(handle_keys);
         for (var i = 0; i < bullets.length; i++) {
             var bullet = bullets[i];
             var dist = multVecI(bullet.dir, bullet.speed);
             bullet.move(dist);
-            for (var j = 0; j < bullet.points.length; j++) {
-                if (bullet.points[j].x < 0 || bullet.points[j].x > canv_width) {
+            if (isOutOfBounds(bullet.points)) {
+                bullets.splice(i, 1);
+            }
+            for (var j = 0; j < asteroids.length; j++) {
+                if (checkCollision(bullet.points, asteroids[j].points)) {
                     bullets.splice(i, 1);
-                    console.log("bullet deleted");
+                    explode_asteroid(asteroids[j], j);
                 }
             }
-            for (var j = 0; j < bullet.points.length; j++) {
-                if (bullet.points[j].y < 0 || bullet.points[j].y > canv_height) {
-                    bullets.splice(i, 1);
-                    console.log("bullet deleted");
-                }
+        }
+        for (var i = 0; i < debris.length; i++) {
+            if (isOutOfBounds(debris[i].points)) {
+                debris.splice(i, 1);
             }
+        }
+        for (var i = 0; i < debris.length; i++) {
+            var dist = delta * debris[i].speed;
+            debris[i].move(multVecI(debris[i].dir, dist));
         }
         render(ctx);
     }
     requestAnimationFrame(gameUpdate);
 }
-function checkCollision(points) {
-    for (var i = 0; i < points.length; i++) {
-        var a_now = points[i];
+function checkCollision(on, against) {
+    for (var i = 0; i < on.length; i++) {
+        var a_now = on[i];
         var a_next;
-        if (i + 1 === points.length) {
-            a_next = points[0];
+        if (i + 1 === on.length) {
+            a_next = on[0];
         }
         else {
-            a_next = points[i + 1];
+            a_next = on[i + 1];
         }
-        for (var j = 0; j < game_bounds.length; j++) {
-            var g_now = game_bounds[j];
+        for (var j = 0; j < against.length; j++) {
+            var g_now = against[j];
             var g_next;
-            if (j + 1 === game_bounds.length) {
-                g_next = game_bounds[0];
+            if (j + 1 === against.length) {
+                g_next = against[0];
             }
             else {
-                g_next = game_bounds[j + 1];
+                g_next = against[j + 1];
             }
             if (didCollideLine(a_now, a_next, g_now, g_next)) {
                 return true;
             }
         }
     }
+}
+function checkCollisionWithResult(on, against) {
+    for (var i = 0; i < on.length; i++) {
+        var a_now = on[i];
+        var a_next;
+        if (i + 1 === on.length) {
+            a_next = on[0];
+        }
+        else {
+            a_next = on[i + 1];
+        }
+        for (var j = 0; j < against.length; j++) {
+            var g_now = against[j];
+            var g_next;
+            if (j + 1 === against.length) {
+                g_next = against[0];
+            }
+            else {
+                g_next = against[j + 1];
+            }
+            if (didCollideLine(a_now, a_next, g_now, g_next)) {
+                var normal = getNormal(g_now, g_next);
+                var normalized = normalizeVec(normal[0]);
+                console.log(normalized);
+                return { did_collide: true, col_normal: normalized };
+            }
+        }
+    }
+    return { did_collide: false };
+}
+function isOutOfBounds(points) {
+    for (var j = 0; j < points.length; j++) {
+        if (points[j].x < 0 || points[j].x > canv_width) {
+            return true;
+        }
+    }
+    for (var j = 0; j < points.length; j++) {
+        if (points[j].y < 0 || points[j].y > canv_height) {
+            return true;
+        }
+    }
+    return false;
 }
 function didCollideLine(p1, p2, p3, p4) {
     var uA = ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) /
@@ -209,8 +278,29 @@ function generate_points() {
     }
     return directions;
 }
+function explode_asteroid(asteroid, index) {
+    for (var i = 0; i < asteroid.points.length - 1; i++) {
+        var now = asteroid.points[i];
+        var next = asteroid.points[i + 1];
+        var normal = getNormal(now, next);
+        var pos = divVecI(addVec(now, next), 2);
+        var new_debris = new Entity('debris');
+        new_debris.dir = normal[0];
+        new_debris.pos = pos;
+        new_debris.points = [{ x: now.x, y: now.y }, { x: next.x, y: next.y }];
+        debris.push(new_debris);
+    }
+    asteroids.splice(index, 1);
+}
 function invertVec(v) {
     return { x: v.x * -1, y: v.y * -1 };
+}
+function reflectVec(v, normal) {
+    var dot = v.x * normal.x + v.y * normal.y;
+    return {
+        x: v.x - 2 * dot * normal.x,
+        y: v.y - 2 * dot * normal.y
+    };
 }
 function multVec(v1, v2) {
     return { x: v1.x * v2.x, y: v1.y * v2.y };
@@ -218,8 +308,23 @@ function multVec(v1, v2) {
 function multVecI(v1, n) {
     return { x: v1.x * n, y: v1.y * n };
 }
+function divVecI(v1, n) {
+    return { x: v1.x / n, y: v1.y / n };
+}
 function addVec(v1, v2) {
     return { x: v1.x + v2.x, y: v1.y + v2.y };
+}
+function normalizeVec(v) {
+    var length = Math.sqrt(v.x * v.x + v.y * v.y);
+    return {
+        x: v.x / length,
+        y: v.y / length
+    };
+}
+function getNormal(v1, v2) {
+    var dx = v2.x - v1.x;
+    var dy = v2.y - v1.y;
+    return [{ x: -dy, y: dx }, { x: dy, y: -dx }];
 }
 function rotatePoint(v, center, angle) {
     var translated_x = v.x - center.x;
@@ -242,6 +347,9 @@ export function get_canvas() {
     return canvas;
 }
 export function start_game() {
+    if (running === false) {
+        last_time = performance.now();
+    }
     running = true;
 }
 export function pause_game() {

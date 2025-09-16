@@ -17,6 +17,7 @@ const asteroids: Array<Entity> = [];
 const game_bounds: Array<Vector2> = [{ x: 0, y: 0 }, { x: canv_width, y: 0 }
         , { x: canv_width, y: canv_height }, { x: 0, y: canv_height }];
 const bullets: Array<Entity> = [];
+const debris: Array<Entity> = [];
 
 if (!ctx) {
         throw new Error("Failed to load context");
@@ -26,6 +27,9 @@ class Entity {
         dir: Vector2;
         speed: number;
         pos: Vector2;
+        height?: number;
+        width?: number;
+        col_timeout?: number;
 
         constructor(type: string) {
                 //TODO
@@ -42,27 +46,32 @@ class Entity {
                                 this.points = points;
                                 this.dir = get_random_bipolar();
                                 this.speed = 0.05;
+                                this.col_timeout = 0;
                                 break;
 
                         case "player":
-                                const pos: Vector2 = {
+                                this.pos = {
                                         x: canv_width / 2,
                                         y: canv_height / 2
-                                }
-                                this.pos = pos;
-                                this.points = [addVec({ x: -10, y: 0 }, pos),
-                                addVec({ x: 0, y: 12 }, pos),
-                                addVec({ x: 10, y: 0 }, pos)];
+                                };
+                                this.height = 20;
+                                this.width = 10;
+                                this.points = [addVec({ x: -10, y: -this.height / 2 }, this.pos),
+                                addVec({ x: 0, y: this.height - this.height / 2 }, this.pos),
+                                addVec({ x: 10, y: -this.height / 2 }, this.pos)];
                                 this.dir = { x: 0, y: 1 };
                                 this.speed = 0.5;
                                 break;
 
                         case "phaser":
-                                this.pos = player.pos;
+                                this.pos = addVec(player.pos, player.dir);
+                                this.points = [addVec(player.pos, multVecI(player.dir, player.height)), addVec(player.pos, multVecI(player.dir, player.height + 3))];
                                 this.dir = player.dir;
                                 this.speed = 1;
-                                this.points = [{ x: player.pos.x, y: player.pos.y },
-                                addVec(player.pos, multVecI(player.dir, 10))];
+                                break;
+                        case "debris":
+                                this.speed = 0.01;
+                                break;
                 }
         }
 
@@ -81,6 +90,7 @@ requestAnimationFrame(gameUpdate);
 
 function render(ctx: CanvasRenderingContext2D) {
         ctx.clearRect(0, 0, canv_width, canv_height);
+
 
         //Render Asteroids
         for (let i = 0; i < asteroids.length; i++) {
@@ -102,6 +112,22 @@ function render(ctx: CanvasRenderingContext2D) {
                 ctx.closePath();
                 ctx.stroke();
         }
+        //DEBUG RENDER
+        // for (let i = 0; i < asteroids.length; i++) {
+        //         ctx.strokeStyle = 'blue';
+        //         ctx.lineWidth = 2;
+        //         ctx.beginPath();
+        //
+        //         for (let j = 0; j < asteroids[i].points.length - 1; j++) {
+        //                 const now = asteroids[i].points[j];
+        //                 const next = asteroids[i].points[j + 1];
+        //                 let normal: Array<Vector2> = getNormal(now, next);
+        //                 ctx.moveTo(normal[0].x + asteroids[i].pos.x, normal[0].y + asteroids[i].pos.y);
+        //                 ctx.lineTo(normal[1].x + asteroids[i].pos.x, normal[1].y + asteroids[i].pos.y);
+        //                 ctx.stroke();
+        //
+        //         }
+        // }
         //Render Player
         ctx.lineWidth = 4;
         ctx.strokeStyle = 'green';
@@ -129,13 +155,26 @@ function render(ctx: CanvasRenderingContext2D) {
                 ctx.beginPath();
                 ctx.moveTo(points[0].x, points[0].y);
                 ctx.lineTo(points[1].x, points[1].y);
-                ctx.closePath();
+                ctx.stroke();
+        }
+
+        //Render Debris
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'white';
+        for (let i = 0; i < debris.length; i++) {
+                ctx.beginPath();
+                ctx.moveTo(debris[i].points[0].x, debris[i].points[0].y);
+                ctx.lineTo(debris[i].points[1].x, debris[i].points[1].y);
                 ctx.stroke();
         }
 
 
         ctx.fillStyle = 'white';
         ctx.fillText(`Delta : ${delta}`, 10, 10, canv_width);
+        ctx.fillText(`No. Asteroids: ${asteroids.length}`, 10, 20, canv_width);
+        ctx.fillText(`No. Bullet: ${bullets.length}`, 10, 30, canv_width);
+        ctx.fillText(`No. Debris: ${debris.length}`, 10, 40, canv_width);
+
 }
 
 function gameUpdate(current_time: number) {
@@ -148,17 +187,21 @@ function gameUpdate(current_time: number) {
                 }
                 //Asteroid Movement
                 for (let i = 0; i < asteroids.length; i++) {
-                        const aster: Entity = asteroids[i];
+                        const aster = asteroids[i];
                         const zelta = Math.max(delta * aster.speed, 0.05);
-                        const dist: Vector2 = multVecI(aster.dir, zelta);
+                        const dist = multVecI(aster.dir, zelta);
                         asteroids[i].move(dist);
-                        if (checkCollision(aster.points)) {
-                                aster.dir = invertVec(aster.dir);
+                        if (aster.col_timeout > 0) {
+                                const col_result = checkCollisionWithResult(aster.points, game_bounds);
+                                if (col_result.did_collide === true) {
+                                        aster.dir = reflectVec(aster.dir, col_result.col_normal);
+                                        aster.col_timeout = -10;
+                                }
                         }
-
-
-
+                        aster.col_timeout += 1;
                 }
+
+
                 //Player
                 handle_input(handle_keys);
 
@@ -169,55 +212,106 @@ function gameUpdate(current_time: number) {
                         bullet.move(dist);
 
                         //check if out of bounds
-                        for (let j = 0; j < bullet.points.length; j++) {
-                                if (bullet.points[j].x < 0 || bullet.points[j].x > canv_width) {
+                        if (isOutOfBounds(bullet.points)) {
+                                bullets.splice(i, 1);
+                        }
+
+                        //collision with asteroids
+                        for (let j = 0; j < asteroids.length; j++) {
+                                if (checkCollision(bullet.points, asteroids[j].points)) {
                                         bullets.splice(i, 1);
-                                        console.log("bullet deleted");
+                                        explode_asteroid(asteroids[j], j);
                                 }
                         }
-                        for (let j = 0; j < bullet.points.length; j++) {
-                                if (bullet.points[j].y < 0 || bullet.points[j].y > canv_height) {
-                                        bullets.splice(i, 1);
-                                        console.log("bullet deleted");
-                                }
+                }
+                //Debris
+                for (let i = 0; i < debris.length; i++) {
+                        if (isOutOfBounds(debris[i].points)) {
+                                debris.splice(i, 1);
                         }
+                }
+                for (let i = 0; i < debris.length; i++) {
+                        const dist = delta * debris[i].speed;
+                        debris[i].move(multVecI(debris[i].dir, dist));
                 }
 
                 render(ctx);
         }
         requestAnimationFrame(gameUpdate);
 }
-//Maybe change check collision to also take another array of points so it 
-//can handle game bounds or asteroids
 
-function checkCollision(points: Array<Vector2>): boolean {
-        for (let i = 0; i < points.length; i++) {
-                const a_now = points[i];
+function checkCollision(on: Array<Vector2>, against: Array<Vector2>): boolean {
+        for (let i = 0; i < on.length; i++) {
+                const a_now = on[i];
                 var a_next;
-                if (i + 1 === points.length) {
-                        a_next = points[0]
+                if (i + 1 === on.length) {
+                        a_next = on[0]
 
                 }
-                else { a_next = points[i + 1]; }
+                else { a_next = on[i + 1]; }
 
-                //Check against game bounds
 
-                for (let j = 0; j < game_bounds.length; j++) {
-                        const g_now = game_bounds[j];
+                for (let j = 0; j < against.length; j++) {
+                        const g_now = against[j];
                         var g_next;
-                        if (j + 1 === game_bounds.length) {
-                                g_next = game_bounds[0];
+                        if (j + 1 === against.length) {
+                                g_next = against[0];
                         }
-                        else { g_next = game_bounds[j + 1]; }
+                        else { g_next = against[j + 1]; }
 
                         if (didCollideLine(a_now, a_next, g_now, g_next)) {
                                 return true;
                         }
                 }
-
-
-
         }
+}
+type ColResult = {
+        did_collide: boolean,
+        col_normal?: Vector2,
+}
+
+function checkCollisionWithResult(on: Array<Vector2>, against: Array<Vector2>): ColResult {
+        for (let i = 0; i < on.length; i++) {
+                const a_now = on[i];
+                var a_next;
+                if (i + 1 === on.length) {
+                        a_next = on[0]
+
+                }
+                else { a_next = on[i + 1]; }
+
+
+                for (let j = 0; j < against.length; j++) {
+                        const g_now = against[j];
+                        var g_next;
+                        if (j + 1 === against.length) {
+                                g_next = against[0];
+                        }
+                        else { g_next = against[j + 1]; }
+
+                        if (didCollideLine(a_now, a_next, g_now, g_next)) {
+                                const normal = getNormal(g_now, g_next);
+                                const normalized = normalizeVec(normal[0]);
+                                console.log(normalized);
+                                return { did_collide: true, col_normal: normalized };
+                        }
+                }
+        }
+        return { did_collide: false }
+}
+
+function isOutOfBounds(points: Array<Vector2>): boolean {
+        for (let j = 0; j < points.length; j++) {
+                if (points[j].x < 0 || points[j].x > canv_width) {
+                        return true;
+                }
+        }
+        for (let j = 0; j < points.length; j++) {
+                if (points[j].y < 0 || points[j].y > canv_height) {
+                        return true;
+                }
+        }
+        return false;
 }
 
 function didCollideLine(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2): boolean {
@@ -268,6 +362,26 @@ function generate_points(): Array<Vector2> {
         return directions;
 }
 
+function explode_asteroid(asteroid: Entity, index: number) {
+
+        for (let i = 0; i < asteroid.points.length - 1; i++) {
+                const now = asteroid.points[i];
+                const next = asteroid.points[i + 1];
+                const normal = getNormal(now, next);
+
+                const pos = divVecI(addVec(now, next), 2);
+                const new_debris = new Entity('debris');
+                new_debris.dir = normal[0];
+                new_debris.pos = pos;
+                new_debris.points = [{ x: now.x, y: now.y }, { x: next.x, y: next.y }];
+
+                debris.push(new_debris);
+
+
+        }
+        asteroids.splice(index, 1);
+}
+
 
 type Vector2 = {
         x: number,
@@ -277,14 +391,37 @@ type Vector2 = {
 function invertVec(v: Vector2) {
         return { x: v.x * -1, y: v.y * -1 }
 }
+function reflectVec(v: Vector2, normal: Vector2): Vector2 {
+        const dot = v.x * normal.x + v.y * normal.y;
+        return {
+                x: v.x - 2 * dot * normal.x,
+                y: v.y - 2 * dot * normal.y
+        };
+}
 function multVec(v1: Vector2, v2: Vector2): Vector2 {
         return { x: v1.x * v2.x, y: v1.y * v2.y };
 }
 function multVecI(v1: Vector2, n: number): Vector2 {
         return { x: v1.x * n, y: v1.y * n };
 }
+function divVecI(v1: Vector2, n: number): Vector2 {
+        return { x: v1.x / n, y: v1.y / n };
+}
 function addVec(v1: Vector2, v2: Vector2): Vector2 {
         return { x: v1.x + v2.x, y: v1.y + v2.y };
+}
+function normalizeVec(v: Vector2) {
+        const length = Math.sqrt(v.x * v.x + v.y * v.y);
+        return {
+                x: v.x / length,
+                y: v.y / length
+        };
+}
+
+function getNormal(v1: Vector2, v2: Vector2): Array<Vector2> {
+        const dx = v2.x - v1.x;
+        const dy = v2.y - v1.y;
+        return [{ x: -dy, y: dx }, { x: dy, y: -dx }];
 }
 function rotatePoint(v: Vector2, center: Vector2, angle: number): Vector2 {
         const translated_x = v.x - center.x;
@@ -315,6 +452,9 @@ export function get_canvas(): HTMLCanvasElement {
 }
 
 export function start_game() {
+        if (running === false) {
+                last_time = performance.now();
+        }
         running = true;
 }
 
