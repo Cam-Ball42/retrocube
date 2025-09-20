@@ -6,13 +6,7 @@ export type Vector2 = {
 export function invertVec(v: Vector2) {
         return { x: v.x * -1, y: v.y * -1 }
 }
-export function reflectVec(v: Vector2, normal: Vector2): Vector2 {
-        const dot = v.x * normal.x + v.y * normal.y;
-        return {
-                x: v.x - 2 * dot * normal.x,
-                y: v.y - 2 * dot * normal.y
-        };
-}
+
 export function multVec(v1: Vector2, v2: Vector2): Vector2 {
         return { x: v1.x * v2.x, y: v1.y * v2.y };
 }
@@ -24,6 +18,23 @@ export function divVecI(v1: Vector2, n: number): Vector2 {
 }
 export function addVec(v1: Vector2, v2: Vector2): Vector2 {
         return { x: v1.x + v2.x, y: v1.y + v2.y };
+}
+export function addVecI(v1: Vector2, n: number): Vector2 {
+        return { x: v1.x + n, y: v1.y + n }
+}
+
+export function dotVec(v1: Vector2, v2: Vector2): number {
+        return v1.x * v2.x + v1.y * v2.y;
+}
+export function reflectVec(v: Vector2, normal: Vector2): Vector2 {
+        let dot: number = dotVec(v, normal);
+        return {
+                x: v.x - 2 * dot * normal.x,
+                y: v.y - 2 * dot * normal.y
+        };
+}
+export function reduceVec(v1: Vector2, v2: Vector2): Vector2 {
+        return { x: v1.x - v2.x, y: v1.y - v1.y }
 }
 export function normalizeVec(v: Vector2) {
         const length = Math.sqrt(v.x * v.x + v.y * v.y);
@@ -51,6 +62,34 @@ export function rotatePoint(v: Vector2, center: Vector2, angle: number): Vector2
         return {
                 x: rotated_x + center.x,
                 y: rotated_y + center.y,
+        }
+}
+
+export function closestPointOnLineSegment(point: Vector2, p1: Vector2,
+        p2: Vector2) {
+        const line_dir = reduceVec(p2, p1);
+        const line_length_sq = dotVec(line_dir, line_dir);
+        if (line_length_sq === 0) {
+                return p1;
+        }
+
+        const t = Math.min(Math.max(dotVec(reduceVec(point, p1), line_dir) / line_length_sq, 1), 0);
+
+        return multVec(addVecI(p1, t), line_dir);
+}
+
+export function distanceToLineSegment(v1: Vector2, p1: Vector2, p2: Vector2) {
+        const closest = closestPointOnLineSegment(v1, p1, p2);
+        return reduceVec(v1, closest);
+}
+
+export function pointNearLine(v1: Vector2, p1: Vector2, p2: Vector2, threshold: number): boolean {
+        const distance = distanceToLineSegment(v1, p1, p2);
+        if (threshold >= distance.x || threshold >= distance.y) {
+                return true;
+        }
+        else {
+                return false;
         }
 }
 
@@ -117,14 +156,14 @@ export function checkCollisionWithResult(on: Array<Vector2>, against: Array<Vect
         return { did_collide: false }
 }
 
-export function isOutOfBounds(points: Array<Vector2>, width: number, height: number): boolean {
+export function isOutOfBounds(points: Array<Vector2>, minx: number, miny: number, width: number, height: number): boolean {
         for (let j = 0; j < points.length; j++) {
-                if (points[j].x < 0 || points[j].x > width) {
+                if (points[j].x < minx || points[j].x > width) {
                         return true;
                 }
         }
         for (let j = 0; j < points.length; j++) {
-                if (points[j].y < 0 || points[j].y > height) {
+                if (points[j].y < miny || points[j].y > height) {
                         return true;
                 }
         }

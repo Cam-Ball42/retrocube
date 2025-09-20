@@ -218,6 +218,8 @@ function gameUpdate(current_time: number) {
                 //Asteroid Movement
                 for (let i = 0; i < asteroids.length; i++) {
                         const aster = asteroids[i];
+
+
                         const dist = multVecI(aster.dir, delta * aster.speed);
                         asteroids[i].move(dist);
                         if (aster.frame_counter > 0) {
@@ -229,6 +231,12 @@ function gameUpdate(current_time: number) {
                         }
                         aster.frame_counter += 1;
                         rotatePoints(aster.points, aster.pos, aster.rotation_speed);
+
+                        if (isOutOfBounds(aster.points, -bounds_pad - 10, -bounds_pad - 10, canv_width + bounds_pad + 10, canv_height + bounds_pad + 10)) {
+                                asteroids.splice(i, 1);
+                                console.log("Asteroid out of bounds");
+                        }
+
                 }
 
                 //Player
@@ -244,8 +252,9 @@ function gameUpdate(current_time: number) {
                         bullet.move(dist);
 
                         //check if out of bounds
-                        if (isOutOfBounds(bullet.points, canv_width, canv_height)) {
+                        if (isOutOfBounds(bullet.points, 0, 0, canv_width, canv_height)) {
                                 bullets.splice(i, 1);
+                                continue;
                         }
 
                         //collision with asteroids
@@ -265,8 +274,9 @@ function gameUpdate(current_time: number) {
 
                         if (debris[i].frame_counter >= debris_lifetime) {
                                 debris.splice(i, 1);
+                                continue
                         }
-                        else if (isOutOfBounds(debris[i].points, canv_width, canv_height)) {
+                        else if (isOutOfBounds(debris[i].points, 0, 0, canv_width, canv_height)) {
                                 debris.splice(i, 1);
                         }
                 }
@@ -340,6 +350,11 @@ export function start_game() {
 
 export function pause_game() {
         running = false;
+        ctx.clearRect(0, 0, canv_width, canv_height);
+}
+
+export function get_name() {
+        return "asteroids"
 }
 
 export function set_canvas_transform(transform: any) {

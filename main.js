@@ -1,16 +1,19 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';
 import { CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js'
 import * as snake from './snake.js';
 import * as asteroids from './asteroids.js'
+import * as breakout from './breakout.js'
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth /
         window.innerHeight, 0.1, 1000);
 
 camera.position.z = 5;
+
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -28,13 +31,49 @@ const controls = new OrbitControls(camera, renderer.domElement);
 document.body.appendChild(renderer.domElement);
 document.body.appendChild(css_renderer.domElement);
 
-//GCUBE
-const geometry = new THREE.BoxGeometry(2, 2, 2);
-const stand_material = new THREE.MeshStandardMaterial({ wireframe: true });
-const cube = new THREE.Mesh(geometry, stand_material);
-scene.add(cube);
 
-const games = [snake, asteroids];
+//MYCUBE
+let cube_obj;
+const mtl_loader = new MTLLoader();
+const obj_loader = new OBJLoader();
+
+mtl_loader.load(
+        `./cube.mtl`,
+        function (materials) {
+                materials.preload();
+                obj_loader.setMaterials(materials);
+                obj_loader.load(
+                        './cube.obj',
+                        function (object) {
+
+                                object.scale.set(1.11, 1.11, 1.11);
+                                cube_obj = object;
+                                scene.add(object);
+
+                        },
+                        function (xhr) {
+                                console.log((xhr.loaded / xhr.total * 100) + `% loaded`);
+                        },
+                        function (error) {
+                                console.log(`An error occured: ${error}`);
+                        },
+                )
+
+
+
+        },
+        function (xhr) {
+                console.log((xhr.loaded / xhr.total * 100) + `% loaded`);
+        },
+        function (error) {
+                console.log(`An error occured: ${error}`);
+        },
+)
+
+
+
+
+const games = [snake, asteroids, breakout];
 
 //Iframe gen
 const canvas_transforms = [
@@ -65,6 +104,10 @@ function gen_canvas() {
                         asteroids.set_canvas_transform(canvas_transforms[i]);
 
                 }
+                else if (i == 2) {
+                        canvas = breakout.get_canvas();
+                        breakout.set_canvas_transform(canvas_transforms[i]);
+                }
                 else { continue }
                 var obj = new CSS3DObject(canvas);
                 obj.position.copy(canvas_transforms[i].pos);
@@ -82,14 +125,23 @@ let frames = gen_canvas();
 
 //LIGHTS
 
-const light = new THREE.AmbientLight(0xffffff);
+const light = new THREE.AmbientLight(0x404040);
+light.intensity = 1;
 scene.add(light);
 
-const spotlight = new THREE.DirectionalLight(0xffffff);
-spotlight.position.set(0, 1000, 0);
-spotlight.intensity = 0.8;
+const spotlight = new THREE.DirectionalLight(0x404040, 0.1);
+spotlight.position.set(0, 0, 0);
+spotlight.castShadow = true;
+camera.add(spotlight);
+scene.add(camera);
 
-scene.add(spotlight);
+const top_light = new THREE.DirectionalLight(0x404040, 0.8);
+top_light.position.set(0, 20, 0);
+scene.add(top_light)
+
+// scene.add(spotlight);
+
+scene.background = new THREE.Color(0.1, 0.1, 0.1);
 
 //RESIZE HANDLER
 //

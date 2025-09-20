@@ -225,6 +225,11 @@ export function start_game() {
 }
 export function pause_game() {
         running = false;
+        ctx.clearRect(0, 0, canv_width, canv_height);
+}
+
+export function get_name() {
+        return "snake"
 }
 
 export function set_canvas_transform(transform: any) {

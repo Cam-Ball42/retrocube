@@ -1,13 +1,6 @@
 export function invertVec(v) {
     return { x: v.x * -1, y: v.y * -1 };
 }
-export function reflectVec(v, normal) {
-    var dot = v.x * normal.x + v.y * normal.y;
-    return {
-        x: v.x - 2 * dot * normal.x,
-        y: v.y - 2 * dot * normal.y
-    };
-}
 export function multVec(v1, v2) {
     return { x: v1.x * v2.x, y: v1.y * v2.y };
 }
@@ -19,6 +12,22 @@ export function divVecI(v1, n) {
 }
 export function addVec(v1, v2) {
     return { x: v1.x + v2.x, y: v1.y + v2.y };
+}
+export function addVecI(v1, n) {
+    return { x: v1.x + n, y: v1.y + n };
+}
+export function dotVec(v1, v2) {
+    return v1.x * v2.x + v1.y * v2.y;
+}
+export function reflectVec(v, normal) {
+    var dot = dotVec(v, normal);
+    return {
+        x: v.x - 2 * dot * normal.x,
+        y: v.y - 2 * dot * normal.y
+    };
+}
+export function reduceVec(v1, v2) {
+    return { x: v1.x - v2.x, y: v1.y - v1.y };
 }
 export function normalizeVec(v) {
     var length = Math.sqrt(v.x * v.x + v.y * v.y);
@@ -43,6 +52,28 @@ export function rotatePoint(v, center, angle) {
         x: rotated_x + center.x,
         y: rotated_y + center.y,
     };
+}
+export function closestPointOnLineSegment(point, p1, p2) {
+    var line_dir = reduceVec(p2, p1);
+    var line_length_sq = dotVec(line_dir, line_dir);
+    if (line_length_sq === 0) {
+        return p1;
+    }
+    var t = Math.min(Math.max(dotVec(reduceVec(point, p1), line_dir) / line_length_sq, 1), 0);
+    return multVec(addVecI(p1, t), line_dir);
+}
+export function distanceToLineSegment(v1, p1, p2) {
+    var closest = closestPointOnLineSegment(v1, p1, p2);
+    return reduceVec(v1, closest);
+}
+export function pointNearLine(v1, p1, p2, threshold) {
+    var distance = distanceToLineSegment(v1, p1, p2);
+    if (threshold >= distance.x || threshold >= distance.y) {
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 export function rotatePoints(points, center, angle) {
     for (var i = 0; i < points.length; i++) {
@@ -102,14 +133,14 @@ export function checkCollisionWithResult(on, against) {
     }
     return { did_collide: false };
 }
-export function isOutOfBounds(points, width, height) {
+export function isOutOfBounds(points, minx, miny, width, height) {
     for (var j = 0; j < points.length; j++) {
-        if (points[j].x < 0 || points[j].x > width) {
+        if (points[j].x < minx || points[j].x > width) {
             return true;
         }
     }
     for (var j = 0; j < points.length; j++) {
-        if (points[j].y < 0 || points[j].y > height) {
+        if (points[j].y < miny || points[j].y > height) {
             return true;
         }
     }

@@ -183,6 +183,10 @@ function gameUpdate(current_time) {
             }
             aster.frame_counter += 1;
             rotatePoints(aster.points, aster.pos, aster.rotation_speed);
+            if (isOutOfBounds(aster.points, -bounds_pad - 10, -bounds_pad - 10, canv_width + bounds_pad + 10, canv_height + bounds_pad + 10)) {
+                asteroids.splice(i, 1);
+                console.log("Asteroid out of bounds");
+            }
         }
         handle_input(handle_keys);
         if (player.frame_counter > 0) {
@@ -192,8 +196,9 @@ function gameUpdate(current_time) {
             var bullet = bullets[i];
             var dist = multVecI(bullet.dir, bullet.speed * delta);
             bullet.move(dist);
-            if (isOutOfBounds(bullet.points, canv_width, canv_height)) {
+            if (isOutOfBounds(bullet.points, 0, 0, canv_width, canv_height)) {
                 bullets.splice(i, 1);
+                continue;
             }
             for (var j = 0; j < asteroids.length; j++) {
                 if (checkCollision(bullet.points, asteroids[j].points)) {
@@ -208,8 +213,9 @@ function gameUpdate(current_time) {
             debris[i].move(multVecI(debris[i].dir, dist));
             if (debris[i].frame_counter >= debris_lifetime) {
                 debris.splice(i, 1);
+                continue;
             }
-            else if (isOutOfBounds(debris[i].points, canv_width, canv_height)) {
+            else if (isOutOfBounds(debris[i].points, 0, 0, canv_width, canv_height)) {
                 debris.splice(i, 1);
             }
         }
@@ -265,6 +271,10 @@ export function start_game() {
 }
 export function pause_game() {
     running = false;
+    ctx.clearRect(0, 0, canv_width, canv_height);
+}
+export function get_name() {
+    return "asteroids";
 }
 export function set_canvas_transform(transform) {
     canvas_transform = transform;

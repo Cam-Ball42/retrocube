@@ -9,6 +9,7 @@
   "files": [
 		"snake.ts",
 		"asteroids.ts",
+		"breakout.ts",
 	]
 
 }
